@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>力矩與平衡虛擬實驗室 | Torque & Equilibrium Virtual Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隱藏捲軸並確保全螢幕佈局 */
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        /* 畫布樣式 */
+        canvas { display: block; touch-action: none; }
+        /* 自訂滑塊樣式以提升科技感 */
+        input[type=range] { accent-color: #0ea5e9; }
+        .glass-panel { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .data-value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        /* 頁籤過渡動畫 */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Header 頂部 -->
+    <header class="h-16 shrink-0 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 z-20 shadow-md relative">
+        <div>
+            <h1 id="ui-title" class="text-xl font-bold text-sky-400 tracking-wide">力矩與平衡虛擬實驗室</h1>
+            <p id="ui-subtitle" class="text-xs text-slate-400">涵蓋力矩、力偶與靜力平衡的完整動力學模擬</p>
+        </div>
+        
+        <!-- 模式切換頁籤 -->
+        <div class="absolute left-1/2 -translate-x-1/2 bottom-0 flex gap-1 h-full pt-4">
+            <button class="tab-btn px-6 py-2 text-sm font-bold border-b-2 border-sky-400 text-sky-400 transition-colors" data-tab="single" id="tab-single">單一力矩</button>
+            <button class="tab-btn px-6 py-2 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors" data-tab="couple" id="tab-couple">力偶系統</button>
+            <button class="tab-btn px-6 py-2 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors" data-tab="equilibrium" id="tab-equilibrium">靜力平衡</button>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button id="btn-lang" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-600">
+                EN / 中文
+            </button>
+            <button id="btn-reset" class="px-4 py-1.5 text-sm font-bold rounded bg-rose-600 hover:bg-rose-500 text-white transition-colors shadow-lg shadow-rose-900/50">
+                RESET
+            </button>
+        </div>
+    </header>
+
+    <!-- Main 內容區 -->
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- 左側面板：控制項與數據 -->
+        <aside class="w-80 shrink-0 glass-panel flex flex-col z-10 overflow-y-auto">
+            
+            <!-- 狀態控制 -->
+            <div class="p-5 border-b border-slate-700">
+                <button id="btn-play" class="w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-white transition-all shadow-lg shadow-emerald-900/50 tracking-wider">
+                    START
+                </button>
+            </div>
+
+            <!-- 環境參數滑塊區域 -->
+            <div class="p-5 border-b border-slate-700 relative min-h-[300px]">
+                <h2 id="ui-ctrl-title" class="text-sm font-bold text-sky-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    物理參數設定
+                </h2>
+                
+                <!-- 面板 1: 單一力矩 -->
+                <div id="panel-single" class="tab-content active space-y-5">
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <label id="ui-lbl-force" for="in-force" class="text-slate-300">施力大小 (F)</label>
+                            <span class="text-sky-400 font-mono"><span id="val-force">50.0</span> N</span>
+                        </div>
+                        <input type="range" id="in-force" min="0" max="200" step="1" value="50" class="w-full">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <label id="ui-lbl-angle" for="in-angle" class="text-slate-300">施力角度 (θ) <span class="text-xs text-slate-500">0-360°</span></label>
+                            <span class="text-sky-400 font-mono"><span id="val-angle">90</span>°</span>
+                        </div>
+                        <input type="range" id="in-angle" min="0" max="360" step="1" value="90" class="w-full">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <label id="ui-lbl-radius" for="in-radius" class="text-slate-300">施力點位置 (r)</label>
+                            <span class="text-sky-400 font-mono"><span id="val-radius">2.00</span> m</span>
+                        </div>
+                        <!-- 單一力矩木板已縮短，最大值設為 2.5 -->
+                        <input type="range" id="in-radius" min="0.1" max="2.5" step="0.05" value="2.0" class="w-full">
+                    </div>
+                </div>
+
+                <!-- 面板 2: 力偶 -->
+                <div id="panel-couple" class="tab-content space-y-5">
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <label id="ui-lbl-c-force" for="in-c-force" class="text-slate-300">單側施力 (F)</label>
+                            <span class="text-sky-400 font-mono"><span id="val-c-force">30.0</span> N</span>
+                        </div>
+                        <input type="range" id="in-c-force" min="0" max="150" step="1" value="30" class="w-full">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <label id="ui-lbl-c-dist" for="in-c-dist" class="text-slate-300">力偶垂直距離 (D)</label>
+                            <span class="text-sky-400 font-mono"><span id="val-c-dist">2.00</span> m</span>
+                        </div>
+                        <input type="range" id="in-c-dist" min="0.5" max="4.0" step="0.1" value="2.0" class="w-full">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <label id="ui-lbl-c-angle" for="in-c-angle" class="text-slate-300">作用角度 (θ)</label>
+                            <span class="text-sky-400 font-mono"><span id="val-c-angle">90</span>°</span>
+                        </div>
+                        <input type="range" id="in-c-angle" min="0" max="360" step="1" value="90" class="w-full">
+                    </div>
+                </div>
+
+                <!-- 面板 3: 靜力平衡 -->
+                <div id="panel-equilibrium" class="tab-content space-y-5">
+                    <!-- 左側砝碼 -->
+                    <div class="p-3 bg-slate-800 rounded border border-slate-700 space-y-3">
+                        <div class="text-xs font-bold text-amber-400 mb-2" id="ui-lbl-eq-left">左側砝碼 (Left Weight)</div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <label id="ui-lbl-m1" class="text-slate-300">質量 (m₁)</label>
+                                <span class="text-sky-400 font-mono"><span id="val-m1">10.0</span> kg</span>
+                            </div>
+                            <input type="range" id="in-m1" min="0" max="50" step="1" value="10" class="w-full h-1">
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <label id="ui-lbl-x1" class="text-slate-300">位置 (x₁)</label>
+                                <span class="text-sky-400 font-mono"><span id="val-x1">-1.50</span> m</span>
+                            </div>
+                            <input type="range" id="in-x1" min="-2.0" max="-0.1" step="0.05" value="-1.5" class="w-full h-1">
+                        </div>
+                    </div>
+                    <!-- 右側砝碼 -->
+                    <div class="p-3 bg-slate-800 rounded border border-slate-700 space-y-3">
+                        <div class="text-xs font-bold text-emerald-400 mb-2" id="ui-lbl-eq-right">右側砝碼 (Right Weight)</div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <label id="ui-lbl-m2" class="text-slate-300">質量 (m₂)</label>
+                                <span class="text-sky-400 font-mono"><span id="val-m2">15.0</span> kg</span>
+                            </div>
+                            <input type="range" id="in-m2" min="0" max="50" step="1" value="15" class="w-full h-1">
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <label id="ui-lbl-x2" class="text-slate-300">位置 (x₂)</label>
+                                <span class="text-sky-400 font-mono"><span id="val-x2">1.00</span> m</span>
+                            </div>
+                            <input type="range" id="in-x2" min="0.1" max="2.0" step="0.05" value="1.0" class="w-full h-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 共用: 空氣阻力 -->
+                <div class="mt-5 space-y-1 pt-4 border-t border-slate-700">
+                    <div class="flex justify-between text-sm">
+                        <label id="ui-lbl-drag" for="in-drag" class="text-slate-500">空氣阻力係數 (c)</label>
+                        <span class="text-slate-400 font-mono"><span id="val-drag">0.50</span></span>
+                    </div>
+                    <input type="range" id="in-drag" min="0" max="5" step="0.1" value="0.5" class="w-full h-1">
+                </div>
+            </div>
+
+            <!-- 實時數據儀表板 -->
+            <div class="p-5 flex-1 bg-slate-800/50">
+                <h2 id="ui-data-title" class="text-sm font-bold text-sky-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    實時數據儀表板
+                </h2>
+                
+                <!-- 動態力學儀表 (單一力矩 / 力偶) -->
+                <div id="data-kinematics" class="grid grid-cols-1 gap-3">
+                    <div class="bg-slate-900 rounded p-3 border border-slate-700 flex flex-col">
+                        <div class="flex justify-between items-center mb-1">
+                            <span id="ui-dat-torque" class="text-xs text-slate-400">淨力矩 (Net Torque) τ</span>
+                            <!-- 新增旋轉方向徽章 -->
+                            <span id="dat-dir" class="text-[10px] px-2 py-0.5 rounded font-bold bg-slate-800 text-slate-500 border border-slate-700">無</span>
+                        </div>
+                        <div class="text-xl font-bold text-amber-400 data-value"><span id="dat-torque">0.00</span> <span class="text-sm text-slate-500">N·m</span></div>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="bg-slate-900 rounded p-3 border border-slate-700 flex flex-col flex-1">
+                            <span id="ui-dat-acc" class="text-xs text-slate-400 mb-1">角加速度 α</span>
+                            <div class="text-lg font-bold text-green-400 data-value"><span id="dat-acc">0.00</span></div>
+                        </div>
+                        <div class="bg-slate-900 rounded p-3 border border-slate-700 flex flex-col flex-1">
+                            <span id="ui-dat-vel" class="text-xs text-slate-400 mb-1">角速度 ω</span>
+                            <div class="text-lg font-bold text-blue-400 data-value"><span id="dat-vel">0.00</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 靜力平衡專用儀表 -->
+                <div id="data-equilibrium" class="hidden grid-cols-1 gap-3">
+                    <div class="bg-slate-900 rounded p-3 border border-slate-700 flex flex-col">
+                        <span id="ui-dat-ccw" class="text-xs text-emerald-400 mb-1">逆時針力矩 (CCW Torque)</span>
+                        <div class="text-xl font-bold text-emerald-400 data-value"><span id="dat-ccw">0.00</span> <span class="text-sm text-slate-500">N·m</span></div>
+                    </div>
+                    <div class="bg-slate-900 rounded p-3 border border-slate-700 flex flex-col">
+                        <span id="ui-dat-cw" class="text-xs text-amber-400 mb-1">順時針力矩 (CW Torque)</span>
+                        <div class="text-xl font-bold text-amber-400 data-value"><span id="dat-cw">0.00</span> <span class="text-sm text-slate-500">N·m</span></div>
+                    </div>
+                    <div class="bg-slate-900 rounded p-3 border border-slate-600 flex flex-col relative overflow-hidden">
+                        <div class="absolute right-0 top-0 bottom-0 w-1 bg-sky-500" id="eq-indicator"></div>
+                        <span id="ui-dat-net" class="text-xs text-slate-300 mb-1">系統狀態 (Status)</span>
+                        <div class="text-lg font-bold text-white" id="dat-status">平衡 (Balanced)</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中央區域：Canvas 模擬與圖表 -->
+        <section class="flex-1 flex flex-col relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950">
+            
+            <!-- 模擬畫布 -->
+            <div class="flex-1 relative" id="canvas-container">
+                <canvas id="simCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                
+                <!-- 圖例 -->
+                <div class="absolute top-4 right-4 glass-panel p-3 rounded text-xs text-slate-300 space-y-2 pointer-events-none shadow-lg">
+                    <div class="font-bold text-white mb-2 pb-1 border-b border-slate-600" id="ui-legend">物理向量圖例</div>
+                    <div class="flex items-center gap-2"><div class="w-4 h-1 bg-red-500 rounded"></div> <span id="leg-force">作用力 (Force) F</span></div>
+                    <div class="flex items-center gap-2"><div class="w-4 h-1 bg-purple-400 rounded"></div> <span id="leg-gravity">重力 (Gravity) mg</span></div>
+                    <div class="flex items-center gap-2"><div class="w-4 h-1 bg-blue-500 rounded"></div> <span id="leg-vel">線速度 (Velocity) v</span></div>
+                </div>
+
+                <!-- 提示文字 -->
+                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-slate-400 text-sm bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-sm shadow border border-slate-700 pointer-events-none transition-opacity" id="ui-hint">
+                    提示：逆時針力矩為正 (+)，順時針力矩為負 (-)
+                </div>
+            </div>
+
+            <!-- 底部圖表區 (僅在非平衡模式顯示) -->
+            <div id="chart-section" class="h-48 shrink-0 glass-panel border-t border-slate-700 p-4 flex flex-col transition-all duration-300">
+                <div class="flex justify-between items-end mb-2">
+                    <h3 id="ui-chart-title" class="text-sm font-bold text-sky-300">運動學圖表：角速度-時間 (ω-t 圖)</h3>
+                    <span class="text-xs text-slate-500" id="ui-time-win">時間窗: 10秒</span>
+                </div>
+                <div class="flex-1 relative w-full h-full">
+                    <canvas id="chartCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        (function() {
+            /** =========================================================================
+             * 1. 多國語言字典 (i18n)
+             * ========================================================================= */
+            const i18n = {
+                zh: {
+                    title: "力矩與平衡虛擬實驗室", subtitle: "涵蓋力矩、力偶與靜力平衡的完整動力學模擬",
+                    tabSingle: "單一力矩", tabCouple: "力偶系統", tabEq: "靜力平衡",
+                    btnPlay: "開始模擬 (START)", btnPause: "暫停 (PAUSE)", btnReset: "重置 (RESET)",
+                    ctrlTitle: "物理參數設定", 
+                    lblForce: "施力大小 (F)", lblAngle: "施力角度 (θ)", lblRadius: "施力點位置 (r)", 
+                    lblCForce: "單側施力 (F)", lblCDist: "力偶垂直距離 (D)", lblCAngle: "作用角度 (θ)",
+                    lblEqLeft: "左側砝碼 (Left Weight)", lblEqRight: "右側砝碼 (Right Weight)",
+                    lblM1: "質量 (m₁)", lblX1: "位置 (x₁)", lblM2: "質量 (m₂)", lblX2: "位置 (x₂)",
+                    lblDrag: "空氣阻力係數 (c)",
+                    dataTitle: "實時數據儀表板", datTorque: "淨力矩 (Net Torque) τ", 
+                    datAcc: "角加速度 α", datVel: "角速度 ω",
+                    datCCW: "逆時針力矩 (CCW Torque)", datCW: "順時針力矩 (CW Torque)", datNet: "系統狀態 (Status)",
+                    statusBalanced: "平衡 (Balanced)", statusTippingCW: "順時針傾倒中...", statusTippingCCW: "逆時針傾倒中...", statusFallen: "已觸地",
+                    legend: "物理向量圖例", legForce: "作用力 (Force) F", legGravity: "重力 (Gravity) mg", legVel: "線速度 (Velocity) v",
+                    chartTitle: "運動學圖表：角速度-時間 (ω-t 圖)", timeWin: "時間窗: 10秒", hint: "提示：逆時針力矩為正 (+)，順時針力矩為負 (-)",
+                    dirCW: "順時針 (CW)", dirCCW: "逆時針 (CCW)", dirNone: "無 (None)"
+                },
+                en: {
+                    title: "Torque & Equilibrium Virtual Lab", subtitle: "Dynamics of Torque, Couples, and Static Equilibrium",
+                    tabSingle: "Single Force", tabCouple: "Force Couple", tabEq: "Static Equilibrium",
+                    btnPlay: "START SIM", btnPause: "PAUSE SIM", btnReset: "RESET",
+                    ctrlTitle: "Physics Parameters", 
+                    lblForce: "Force Magnitude (F)", lblAngle: "Force Angle (θ)", lblRadius: "Application Radius (r)", 
+                    lblCForce: "Side Force (F)", lblCDist: "Couple Distance (D)", lblCAngle: "Action Angle (θ)",
+                    lblEqLeft: "Left Weight", lblEqRight: "Right Weight",
+                    lblM1: "Mass (m₁)", lblX1: "Position (x₁)", lblM2: "Mass (m₂)", lblX2: "Position (x₂)",
+                    lblDrag: "Air Drag Coeff. (c)",
+                    dataTitle: "Real-time Metrics", datTorque: "Net Torque (τ)", 
+                    datAcc: "Angular Accel (α)", datVel: "Angular Velocity (ω)",
+                    datCCW: "Counter-Clockwise Torque", datCW: "Clockwise Torque", datNet: "System Status",
+                    statusBalanced: "Balanced", statusTippingCW: "Tipping CW...", statusTippingCCW: "Tipping CCW...", statusFallen: "Hit Ground",
+                    legend: "Vector Legend", legForce: "Applied Force (F)", legGravity: "Gravity (mg)", legVel: "Velocity (v)",
+                    chartTitle: "Kinematics Chart: Angular Velocity vs Time", timeWin: "Time Window: 10s", hint: "Hint: Counter-Clockwise is Positive (+), Clockwise is Negative (-)",
+                    dirCW: "Clockwise (CW)", dirCCW: "Counter-Clockwise (CCW)", dirNone: "None"
+                }
+            };
+            let currLang = 'zh';
+
+            /** =========================================================================
+             * 2. 物理核心常數與狀態 (Physics Constants & State)
+             * ========================================================================= */
+            const PIXELS_PER_METER = 120; // 空間映射：1公尺 = 120像素
+            const DT = 0.005;             // 固定物理時間步長 (Fixed Time Step): 5ms
+            const MAX_FRAME_TIME = 0.1;   // 避免「死亡螺旋」的最大單幀時間
+            const VECTOR_SCALE = 2;       // 視覺：向量長度縮放係數
+            const GRAVITY = 9.81;         // 重力加速度 (m/s²)
+
+            // 系統狀態機
+            const STATES = { IDLE: 0, RUNNING: 1, PAUSED: 2 };
+            const MODES = { SINGLE: 'single', COUPLE: 'couple', EQUILIBRIUM: 'equilibrium' };
+            
+            const state = {
+                status: STATES.IDLE,
+                mode: MODES.SINGLE,
+                time: 0,
+                accumulator: 0,
+                lastRealTime: performance.now(),
+                
+                // 長桿物件屬性
+                rod: {
+                    length: 2.5,          // 動態長度：單一模式 2.5m，力偶/平衡模式 4.0m
+                    mass: 5.0,            // 質量 (kg)
+                    inertia: 0,           // 轉動慣量 (根據模式動態計算)
+                    theta: 0,             // 當前角度 (rad)
+                    omega: 0,             // 角速度 (rad/s)
+                    alpha: 0              // 角加速度 (rad/s²)
+                },
+                
+                // 外部參數
+                params: {
+                    force: 50, angleDeg: 90, radius: 2.0,
+                    cForce: 30, cDist: 2.0, cAngleDeg: 90,
+                    m1: 10, x1: -1.5, m2: 15, x2: 1.0,
+                    dragCoef: 0.5         
+                },
+
+                currentTorque: 0, tauCCW: 0, tauCW: 0,
+                history: [], trail: [], lastTrailTime: 0          
+            };
+
+            /** =========================================================================
+             * 3. DOM 元素綁定
+             * ========================================================================= */
+            const ui = {
+                btnPlay: document.getElementById('btn-play'), btnReset: document.getElementById('btn-reset'), btnLang: document.getElementById('btn-lang'),
+                tabs: document.querySelectorAll('.tab-btn'),
+                panels: { single: document.getElementById('panel-single'), couple: document.getElementById('panel-couple'), equilibrium: document.getElementById('panel-equilibrium') },
+                chartSec: document.getElementById('chart-section'), dataKinematics: document.getElementById('data-kinematics'), dataEquilibrium: document.getElementById('data-equilibrium'),
+                
+                inForce: document.getElementById('in-force'), inAngle: document.getElementById('in-angle'), inRadius: document.getElementById('in-radius'),
+                inCForce: document.getElementById('in-c-force'), inCDist: document.getElementById('in-c-dist'), inCAngle: document.getElementById('in-c-angle'),
+                inM1: document.getElementById('in-m1'), inX1: document.getElementById('in-x1'), inM2: document.getElementById('in-m2'), inX2: document.getElementById('in-x2'),
+                inDrag: document.getElementById('in-drag'),
+                
+                vForce: document.getElementById('val-force'), vAngle: document.getElementById('val-angle'), vRadius: document.getElementById('val-radius'),
+                vCForce: document.getElementById('val-c-force'), vCDist: document.getElementById('val-c-dist'), vCAngle: document.getElementById('val-c-angle'),
+                vM1: document.getElementById('val-m1'), vX1: document.getElementById('val-x1'), vM2: document.getElementById('val-m2'), vX2: document.getElementById('val-x2'),
+                vDrag: document.getElementById('val-drag'),
+                
+                dTorque: document.getElementById('dat-torque'), dAcc: document.getElementById('dat-acc'), dVel: document.getElementById('dat-vel'),
+                dCCW: document.getElementById('dat-ccw'), dCW: document.getElementById('dat-cw'), dStatus: document.getElementById('dat-status'),
+                dDir: document.getElementById('dat-dir'), // 旋轉方向徽章
+                
+                simCanvas: document.getElementById('simCanvas'), simCtx: document.getElementById('simCanvas').getContext('2d'),
+                chartCanvas: document.getElementById('chartCanvas'), chartCtx: document.getElementById('chartCanvas').getContext('2d'),
+                container: document.getElementById('canvas-container')
+            };
+
+            /** =========================================================================
+             * 4. 模式切換與初始化
+             * ========================================================================= */
+            function switchMode(newMode) {
+                state.mode = newMode;
+                
+                // 動態調整木板長度以適應畫面
+                if (newMode === MODES.SINGLE) {
+                    state.rod.length = 2.5; // 縮短避免超框
+                } else {
+                    state.rod.length = 4.0; // 力偶與平衡使用長板
+                }
+
+                resetSimulation();
+                
+                ui.tabs.forEach(btn => {
+                    if (btn.dataset.tab === newMode) {
+                        btn.classList.remove('border-transparent', 'text-slate-400');
+                        btn.classList.add('border-sky-400', 'text-sky-400');
+                    } else {
+                        btn.classList.add('border-transparent', 'text-slate-400');
+                        btn.classList.remove('border-sky-400', 'text-sky-400');
+                    }
+                });
+
+                Object.values(ui.panels).forEach(p => p.classList.remove('active'));
+                ui.panels[newMode].classList.add('active');
+
+                if (newMode === MODES.EQUILIBRIUM) {
+                    ui.chartSec.classList.add('hidden');
+                    ui.dataKinematics.classList.add('hidden');
+                    ui.dataEquilibrium.classList.remove('hidden');
+                    ui.dataEquilibrium.classList.add('grid');
+                    document.getElementById('in-drag').parentElement.style.display = 'none';
+                } else {
+                    ui.chartSec.classList.remove('hidden');
+                    ui.dataKinematics.classList.remove('hidden');
+                    ui.dataEquilibrium.classList.add('hidden');
+                    ui.dataEquilibrium.classList.remove('grid');
+                    document.getElementById('in-drag').parentElement.style.display = 'block';
+                }
+            }
+
+            ui.tabs.forEach(btn => btn.addEventListener('click', (e) => switchMode(e.target.dataset.tab)));
+
+            function resetSimulation() {
+                state.status = STATES.IDLE; state.time = 0; state.accumulator = 0;
+                state.rod.theta = 0; state.rod.omega = 0; state.rod.alpha = 0;
+                state.currentTorque = 0; state.tauCCW = 0; state.tauCW = 0;
+                state.history = []; state.trail = []; state.lastTrailTime = 0;
+                
+                ui.btnPlay.textContent = i18n[currLang].btnPlay;
+                ui.btnPlay.className = "w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-white transition-all shadow-lg shadow-emerald-900/50 tracking-wider";
+            }
+
+            /** =========================================================================
+             * 5. 物理運算引擎 (Physics Engine)
+             * ========================================================================= */
+            function stepPhysics() {
+                let torqueApp = 0;
+                
+                if (state.mode === MODES.SINGLE) {
+                    state.rod.inertia = (1/3) * state.rod.mass * Math.pow(state.rod.length, 2);
+                    const angleRad = state.params.angleDeg * (Math.PI / 180);
+                    torqueApp = state.params.radius * state.params.force * Math.sin(angleRad);
+                } else if (state.mode === MODES.COUPLE) {
+                    state.rod.inertia = (1/12) * state.rod.mass * Math.pow(state.rod.length, 2);
+                    const angleRad = state.params.cAngleDeg * (Math.PI / 180);
+                    torqueApp = state.params.cDist * state.params.cForce * Math.sin(angleRad);
+                } else if (state.mode === MODES.EQUILIBRIUM) {
+                    state.rod.inertia = (1/12) * state.rod.mass * Math.pow(state.rod.length, 2) 
+                                      + state.params.m1 * Math.pow(state.params.x1, 2) + state.params.m2 * Math.pow(state.params.x2, 2);
+                    const cosTheta = Math.cos(state.rod.theta);
+                    const t1 = -state.params.m1 * GRAVITY * state.params.x1 * cosTheta;
+                    const t2 = -state.params.m2 * GRAVITY * state.params.x2 * cosTheta;
+                    state.tauCCW = (t1 > 0 ? t1 : 0) + (t2 > 0 ? t2 : 0);
+                    state.tauCW  = (t1 < 0 ? t1 : 0) + (t2 < 0 ? t2 : 0);
+                    torqueApp = t1 + t2;
+                }
+
+                const drag = state.mode === MODES.EQUILIBRIUM ? 2.0 : state.params.dragCoef;
+                const torqueDrag = -drag * state.rod.omega * Math.abs(state.rod.omega);
+                
+                state.currentTorque = torqueApp + torqueDrag;
+                state.rod.alpha = state.currentTorque / state.rod.inertia;
+                state.rod.omega += state.rod.alpha * DT;
+                state.rod.theta += state.rod.omega * DT;
+
+                if (state.mode === MODES.EQUILIBRIUM) {
+                    const maxAngle = 20 * Math.PI / 180;
+                    if (state.rod.theta > maxAngle) { state.rod.theta = maxAngle; if (state.rod.omega > 0) state.rod.omega *= -0.3; } 
+                    else if (state.rod.theta < -maxAngle) { state.rod.theta = -maxAngle; if (state.rod.omega < 0) state.rod.omega *= -0.3; }
+                }
+                
+                state.time += DT;
+
+                if (state.mode !== MODES.EQUILIBRIUM) {
+                    if (state.history.length === 0 || state.time - state.history[state.history.length-1].time >= 0.05) {
+                        state.history.push({ time: state.time, w: state.rod.omega });
+                        if (state.time - state.history[0].time > 10) state.history.shift();
+                    }
+                    if (state.time - state.lastTrailTime >= 0.1) {
+                        const ex = state.mode === MODES.SINGLE ? state.rod.length : state.rod.length/2;
+                        state.trail.push({ x: ex * Math.cos(state.rod.theta), y: ex * Math.sin(state.rod.theta), age: 0 });
+                        if (state.mode === MODES.COUPLE) state.trail.push({ x: -ex * Math.cos(state.rod.theta), y: -ex * Math.sin(state.rod.theta), age: 0 });
+                        if (state.trail.length > (state.mode === MODES.COUPLE ? 100 : 50)) state.trail.splice(0, state.mode === MODES.COUPLE ? 2 : 1);
+                        state.lastTrailTime = state.time;
+                    }
+                }
+            }
+
+            /** =========================================================================
+             * 6. 視覺渲染引擎 (Renderer)
+             * ========================================================================= */
+            function resizeCanvases() {
+                const cw = ui.container.clientWidth; const ch = ui.container.clientHeight;
+                if (ui.simCanvas.width !== cw || ui.simCanvas.height !== ch) { ui.simCanvas.width = cw; ui.simCanvas.height = ch; }
+                const chw = ui.chartCanvas.parentElement.clientWidth; const chh = ui.chartCanvas.parentElement.clientHeight;
+                if (ui.chartCanvas.width !== chw || ui.chartCanvas.height !== chh) { ui.chartCanvas.width = chw; ui.chartCanvas.height = chh; }
+            }
+
+            function toScreen(px, py, width, height, centerOrigin = false) {
+                const originX = centerOrigin ? width * 0.5 : width * 0.3;
+                const originY = centerOrigin ? height * 0.6 : height * 0.5;
+                return { x: originX + px * PIXELS_PER_METER, y: originY - py * PIXELS_PER_METER };
+            }
+
+            function drawVector(ctx, startX, startY, angle, magnitude, color, label) {
+                if (Math.abs(magnitude) < 0.1) return;
+                const pixelLength = magnitude * VECTOR_SCALE;
+                const endX = startX + pixelLength * Math.cos(angle);
+                const endY = startY - pixelLength * Math.sin(angle); 
+                
+                const headLen = 10;
+                const screenAngle = Math.atan2(-(endY - startY), endX - startX); 
+                
+                ctx.beginPath();
+                ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3;
+                ctx.moveTo(startX, startY); ctx.lineTo(endX, endY); ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headLen * Math.cos(-screenAngle - Math.PI/6), endY - headLen * Math.sin(-screenAngle - Math.PI/6));
+                ctx.lineTo(endX - headLen * Math.cos(-screenAngle + Math.PI/6), endY - headLen * Math.sin(-screenAngle + Math.PI/6));
+                ctx.closePath(); ctx.fill();
+
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillText(label, endX + (Math.cos(screenAngle)>0?5:-15), endY + (Math.sin(-screenAngle)>0?15:-5));
+            }
+
+            function drawSimulation() {
+                const ctx = ui.simCtx; const w = ui.simCanvas.width; const h = ui.simCanvas.height;
+                const isCenter = state.mode !== MODES.SINGLE;
+                const origin = toScreen(0, 0, w, h, isCenter);
+
+                ctx.clearRect(0, 0, w, h);
+
+                // 畫軌跡
+                state.trail.forEach(pt => {
+                    const screenPt = toScreen(pt.x, pt.y, w, h, isCenter);
+                    pt.age += DT; const alpha = Math.max(0, 1 - pt.age / 5); 
+                    ctx.beginPath(); ctx.arc(screenPt.x, screenPt.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(148, 163, 184, ${alpha})`; ctx.fill();
+                });
+
+                // 支點底座
+                if (state.mode === MODES.EQUILIBRIUM) {
+                    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(origin.x - 30, origin.y + 50); ctx.lineTo(origin.x + 30, origin.y + 50); ctx.closePath();
+                    ctx.fillStyle = '#64748b'; ctx.fill(); ctx.strokeStyle = '#334155'; ctx.lineWidth=2; ctx.stroke();
+                }
+
+                // 畫木板
+                ctx.save();
+                ctx.translate(origin.x, origin.y);
+                ctx.rotate(-state.rod.theta);
+
+                const halfL = state.rod.length / 2 * PIXELS_PER_METER;
+                const fullL = state.rod.length * PIXELS_PER_METER;
+
+                if (state.mode === MODES.SINGLE) {
+                    ctx.fillStyle = '#d97706'; ctx.fillRect(0, -7, fullL, 14);
+                    ctx.strokeStyle = '#92400e'; ctx.lineWidth=2; ctx.strokeRect(0, -7, fullL, 14);
+                } else {
+                    ctx.fillStyle = state.mode===MODES.EQUILIBRIUM ? '#eab308' : '#d97706'; 
+                    ctx.fillRect(-halfL, -7, fullL, 14);
+                    ctx.strokeStyle = '#92400e'; ctx.lineWidth=2; ctx.strokeRect(-halfL, -7, fullL, 14);
+                    if (state.mode === MODES.EQUILIBRIUM) {
+                        ctx.fillStyle = '#713f12';
+                        for(let i = -2; i <= 2; i += 0.5) {
+                            if(i===0) continue; const px = i * PIXELS_PER_METER;
+                            ctx.fillRect(px - 1, -7, 2, 5); ctx.font = "10px sans-serif"; ctx.fillText(Math.abs(i).toString(), px - 5, 5);
+                        }
+                    }
+                }
+                ctx.restore();
+
+                // 支點釘子
+                ctx.beginPath(); ctx.arc(origin.x, origin.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#cbd5e1'; ctx.fill(); ctx.strokeStyle = '#475569'; ctx.lineWidth=2; ctx.stroke();
+                ctx.beginPath(); ctx.arc(origin.x, origin.y, 3, 0, Math.PI*2); ctx.fillStyle = '#475569'; ctx.fill();
+
+                // 畫砝碼
+                if (state.mode === MODES.EQUILIBRIUM) {
+                    const drawWeight = (mass, pos, color) => {
+                        const px = pos * Math.cos(state.rod.theta); const py = pos * Math.sin(state.rod.theta);
+                        const screenPt = toScreen(px, py, w, h, true);
+                        const size = 15 + Math.sqrt(mass) * 3;
+                        ctx.save(); ctx.translate(screenPt.x, screenPt.y); ctx.rotate(-state.rod.theta);
+                        ctx.fillStyle = color; ctx.fillRect(-size/2, -7 - size, size, size);
+                        ctx.strokeStyle = 'white'; ctx.lineWidth=1; ctx.strokeRect(-size/2, -7 - size, size, size);
+                        ctx.fillStyle = 'white'; ctx.font="bold 12px sans-serif"; ctx.fillText(`${mass}kg`, -size/2+2, -7 - size/2 + 4);
+                        ctx.restore();
+                        drawVector(ctx, screenPt.x, screenPt.y, -Math.PI/2, mass * 0.4, '#c084fc', 'mg');
+                    };
+                    drawWeight(state.params.m1, state.params.x1, '#ca8a04');
+                    drawWeight(state.params.m2, state.params.x2, '#059669');
+                }
+
+                // 畫施力向量
+                if (state.mode === MODES.SINGLE) {
+                    const appX = state.params.radius * Math.cos(state.rod.theta); const appY = state.params.radius * Math.sin(state.rod.theta);
+                    const appScreen = toScreen(appX, appY, w, h, false);
+                    const forceAngleAbs = state.rod.theta + state.params.angleDeg * (Math.PI / 180);
+                    drawVector(ctx, appScreen.x, appScreen.y, forceAngleAbs, state.params.force * 0.5, '#ef4444', 'F');
+                    
+                    const velMag = state.params.radius * state.rod.omega;
+                    drawVector(ctx, appScreen.x, appScreen.y, state.rod.theta + Math.PI/2, velMag * 3, '#3b82f6', 'v');
+
+                } else if (state.mode === MODES.COUPLE) {
+                    const r = state.params.cDist / 2;
+                    const p1X = r * Math.cos(state.rod.theta); const p1Y = r * Math.sin(state.rod.theta);
+                    const s1 = toScreen(p1X, p1Y, w, h, true);
+                    const a1 = state.rod.theta + state.params.cAngleDeg * (Math.PI/180);
+                    drawVector(ctx, s1.x, s1.y, a1, state.params.cForce * 0.5, '#ef4444', 'F');
+                    
+                    const p2X = -r * Math.cos(state.rod.theta); const p2Y = -r * Math.sin(state.rod.theta);
+                    const s2 = toScreen(p2X, p2Y, w, h, true);
+                    const a2 = a1 + Math.PI; 
+                    drawVector(ctx, s2.x, s2.y, a2, state.params.cForce * 0.5, '#ef4444', 'F');
+
+                    // 在力偶系統中央加入浮動的順/逆時針文字標籤
+                    if (Math.abs(state.currentTorque) > 0.1) {
+                        const isCCW = state.currentTorque > 0;
+                        const symbol = isCCW ? "↺" : "↻";
+                        const textLabel = isCCW ? i18n[currLang].dirCCW : i18n[currLang].dirCW;
+                        const textStr = `${symbol} ${textLabel}`;
+                        
+                        ctx.font = "bold 15px sans-serif";
+                        const textW = ctx.measureText(textStr).width;
+                        
+                        // 畫背景圓角標籤 (相容寫法)
+                        const rectX = origin.x - textW/2 - 12;
+                        const rectY = origin.y - 65;
+                        const rectW = textW + 24;
+                        const rectH = 28;
+                        const rRadius = 6;
+                        
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                        ctx.beginPath();
+                        ctx.moveTo(rectX + rRadius, rectY);
+                        ctx.lineTo(rectX + rectW - rRadius, rectY);
+                        ctx.quadraticCurveTo(rectX + rectW, rectY, rectX + rectW, rectY + rRadius);
+                        ctx.lineTo(rectX + rectW, rectY + rectH - rRadius);
+                        ctx.quadraticCurveTo(rectX + rectW, rectY + rectH, rectX + rectW - rRadius, rectY + rectH);
+                        ctx.lineTo(rectX + rRadius, rectY + rectH);
+                        ctx.quadraticCurveTo(rectX, rectY + rectH, rectX, rectY + rectH - rRadius);
+                        ctx.lineTo(rectX, rectY + rRadius);
+                        ctx.quadraticCurveTo(rectX, rectY, rectX + rRadius, rectY);
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.stroke();
+
+                        // 寫上文字
+                        ctx.fillStyle = isCCW ? '#34d399' : '#fbbf24'; // emerald or amber
+                        ctx.textAlign = "center";
+                        ctx.fillText(textStr, origin.x, origin.y - 45);
+                        ctx.textAlign = "left"; // reset
+                    }
+                }
+            }
+
+            function drawChart() {
+                if (state.mode === MODES.EQUILIBRIUM) return; 
+                const ctx = ui.chartCtx; const w = ui.chartCanvas.width; const h = ui.chartCanvas.height;
+                ctx.clearRect(0, 0, w, h);
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+                if (state.history.length < 2) return;
+                let maxW = 1; state.history.forEach(p => { if(Math.abs(p.w) > maxW) maxW = Math.abs(p.w); }); maxW *= 1.2;
+                ctx.beginPath(); ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+                const timeWindow = 10; const endTime = state.history[state.history.length - 1].time; const startTime = Math.max(0, endTime - timeWindow);
+                state.history.forEach((pt, i) => {
+                    const x = ((pt.time - startTime) / timeWindow) * w; const y = h/2 - (pt.w / maxW) * (h/2);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+
+            function updateUI() {
+                ui.vForce.textContent = state.params.force.toFixed(1); ui.vAngle.textContent = state.params.angleDeg.toFixed(0); ui.vRadius.textContent = state.params.radius.toFixed(2);
+                ui.vCForce.textContent = state.params.cForce.toFixed(1); ui.vCDist.textContent = state.params.cDist.toFixed(2); ui.vCAngle.textContent = state.params.cAngleDeg.toFixed(0);
+                ui.vM1.textContent = state.params.m1.toFixed(1); ui.vX1.textContent = state.params.x1.toFixed(2);
+                ui.vM2.textContent = state.params.m2.toFixed(1); ui.vX2.textContent = state.params.x2.toFixed(2);
+                ui.vDrag.textContent = state.params.dragCoef.toFixed(2);
+
+                const dict = i18n[currLang];
+
+                if (state.mode !== MODES.EQUILIBRIUM) {
+                    ui.dTorque.textContent = Math.abs(state.currentTorque).toFixed(2);
+                    
+                    // 根據力矩正負號決定徽章與數值的顏色
+                    if (state.currentTorque > 0.05) {
+                        ui.dTorque.parentElement.className = 'text-xl font-bold data-value text-emerald-400';
+                        ui.dDir.textContent = dict.dirCCW;
+                        ui.dDir.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-900/40 text-emerald-400 border border-emerald-700/50";
+                    } else if (state.currentTorque < -0.05) {
+                        ui.dTorque.parentElement.className = 'text-xl font-bold data-value text-amber-400';
+                        ui.dDir.textContent = dict.dirCW;
+                        ui.dDir.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-amber-900/40 text-amber-400 border border-amber-700/50";
+                    } else {
+                        ui.dTorque.parentElement.className = 'text-xl font-bold data-value text-slate-300';
+                        ui.dDir.textContent = dict.dirNone;
+                        ui.dDir.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-slate-800 text-slate-500 border border-slate-700";
+                    }
+
+                    ui.dAcc.textContent = state.rod.alpha.toFixed(2);
+                    ui.dVel.textContent = state.rod.omega.toFixed(2);
+                } else {
+                    ui.dCCW.textContent = state.tauCCW.toFixed(1);
+                    ui.dCW.textContent = state.tauCW.toFixed(1);
+                    
+                    const maxAngle = 19 * Math.PI / 180;
+                    if (Math.abs(state.tauCCW + state.tauCW) < 0.1 && Math.abs(state.rod.theta) < maxAngle) {
+                        ui.dStatus.textContent = dict.statusBalanced; ui.dStatus.className = 'text-lg font-bold text-sky-400';
+                    } else if (state.rod.theta > maxAngle || state.rod.theta < -maxAngle) {
+                        ui.dStatus.textContent = dict.statusFallen; ui.dStatus.className = 'text-lg font-bold text-slate-400';
+                    } else if (state.tauCCW > Math.abs(state.tauCW)) {
+                        ui.dStatus.textContent = dict.statusTippingCCW; ui.dStatus.className = 'text-lg font-bold text-emerald-400';
+                    } else {
+                        ui.dStatus.textContent = dict.statusTippingCW; ui.dStatus.className = 'text-lg font-bold text-amber-400';
+                    }
+                }
+            }
+
+            /** =========================================================================
+             * 7. 主迴圈 (Main Loop)
+             * ========================================================================= */
+            function loop(now) {
+                let frameTime = (now - state.lastRealTime) / 1000;
+                state.lastRealTime = now;
+                if (frameTime > MAX_FRAME_TIME) frameTime = MAX_FRAME_TIME;
+
+                resizeCanvases();
+
+                if (state.status === STATES.RUNNING) {
+                    state.accumulator += frameTime;
+                    while (state.accumulator >= DT) { stepPhysics(); state.accumulator -= DT; }
+                } else {
+                    if (state.mode === MODES.EQUILIBRIUM) stepPhysics(); 
+                }
+
+                drawSimulation(); drawChart(); updateUI();
+                requestAnimationFrame(loop);
+            }
+
+            /** =========================================================================
+             * 8. 事件監聽 (Event Listeners)
+             * ========================================================================= */
+            ui.inForce.addEventListener('input', e => { state.params.force = parseFloat(e.target.value); if(state.status===STATES.IDLE) stepPhysics(); });
+            ui.inAngle.addEventListener('input', e => { state.params.angleDeg = parseFloat(e.target.value); if(state.status===STATES.IDLE) stepPhysics(); });
+            ui.inRadius.addEventListener('input', e => { state.params.radius = parseFloat(e.target.value); if(state.status===STATES.IDLE) stepPhysics(); });
+            
+            ui.inCForce.addEventListener('input', e => { state.params.cForce = parseFloat(e.target.value); if(state.status===STATES.IDLE) stepPhysics(); });
+            ui.inCDist.addEventListener('input', e => { state.params.cDist = parseFloat(e.target.value); if(state.status===STATES.IDLE) stepPhysics(); });
+            ui.inCAngle.addEventListener('input', e => { state.params.cAngleDeg = parseFloat(e.target.value); if(state.status===STATES.IDLE) stepPhysics(); });
+            
+            ui.inM1.addEventListener('input', e => { state.params.m1 = parseFloat(e.target.value); if(state.status!==STATES.RUNNING) stepPhysics(); });
+            ui.inX1.addEventListener('input', e => { state.params.x1 = parseFloat(e.target.value); if(state.status!==STATES.RUNNING) stepPhysics(); });
+            ui.inM2.addEventListener('input', e => { state.params.m2 = parseFloat(e.target.value); if(state.status!==STATES.RUNNING) stepPhysics(); });
+            ui.inX2.addEventListener('input', e => { state.params.x2 = parseFloat(e.target.value); if(state.status!==STATES.RUNNING) stepPhysics(); });
+            
+            ui.inDrag.addEventListener('input', e => state.params.dragCoef = parseFloat(e.target.value));
+
+            ui.btnPlay.addEventListener('click', () => {
+                if (state.status === STATES.RUNNING) {
+                    state.status = STATES.PAUSED; ui.btnPlay.textContent = i18n[currLang].btnPlay;
+                    ui.btnPlay.className = "w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-white transition-all shadow-lg shadow-emerald-900/50 tracking-wider";
+                } else {
+                    state.status = STATES.RUNNING; ui.btnPlay.textContent = i18n[currLang].btnPause;
+                    ui.btnPlay.className = "w-full py-3 rounded-lg bg-amber-600 hover:bg-amber-500 font-bold text-white transition-all shadow-lg shadow-amber-900/50 tracking-wider";
+                    state.lastRealTime = performance.now();
+                }
+            });
+
+            ui.btnReset.addEventListener('click', resetSimulation);
+
+            ui.btnLang.addEventListener('click', () => {
+                currLang = currLang === 'zh' ? 'en' : 'zh';
+                const d = i18n[currLang];
+                document.getElementById('ui-title').innerText = d.title; document.getElementById('ui-subtitle').innerText = d.subtitle;
+                document.getElementById('tab-single').innerText = d.tabSingle; document.getElementById('tab-couple').innerText = d.tabCouple; document.getElementById('tab-equilibrium').innerText = d.tabEq;
+                ui.btnReset.innerText = d.btnReset;
+                if(state.status === STATES.RUNNING) ui.btnPlay.textContent = d.btnPause; else ui.btnPlay.textContent = d.btnPlay;
+                
+                document.getElementById('ui-ctrl-title').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg> ${d.ctrlTitle}`;
+                document.getElementById('ui-lbl-force').innerText = d.lblForce; document.getElementById('ui-lbl-angle').innerHTML = `${d.lblAngle} <span class="text-xs text-slate-500">0-360°</span>`; document.getElementById('ui-lbl-radius').innerText = d.lblRadius;
+                document.getElementById('ui-lbl-c-force').innerText = d.lblCForce; document.getElementById('ui-lbl-c-dist').innerText = d.lblCDist; document.getElementById('ui-lbl-c-angle').innerText = d.lblCAngle;
+                document.getElementById('ui-lbl-eq-left').innerText = d.lblEqLeft; document.getElementById('ui-lbl-eq-right').innerText = d.lblEqRight;
+                document.getElementById('ui-lbl-m1').innerText = d.lblM1; document.getElementById('ui-lbl-x1').innerText = d.lblX1;
+                document.getElementById('ui-lbl-m2').innerText = d.lblM2; document.getElementById('ui-lbl-x2').innerText = d.lblX2;
+                document.getElementById('ui-lbl-drag').innerText = d.lblDrag;
+                
+                document.getElementById('ui-data-title').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg> ${d.dataTitle}`;
+                document.getElementById('ui-dat-torque').innerText = d.datTorque; document.getElementById('ui-dat-acc').innerText = d.datAcc; document.getElementById('ui-dat-vel').innerText = d.datVel;
+                document.getElementById('ui-dat-ccw').innerText = d.datCCW; document.getElementById('ui-dat-cw').innerText = d.datCW; document.getElementById('ui-dat-net').innerText = d.datNet;
+                
+                document.getElementById('ui-legend').innerText = d.legend; document.getElementById('leg-force').innerText = d.legForce; document.getElementById('leg-gravity').innerText = d.legGravity; document.getElementById('leg-vel').innerText = d.legVel;
+                document.getElementById('ui-chart-title').innerText = d.chartTitle; document.getElementById('ui-time-win').innerText = d.timeWin;
+                document.getElementById('ui-hint').innerText = d.hint;
+            });
+
+            // 初始化
+            switchMode(MODES.SINGLE);
+            requestAnimationFrame(loop);
+
+        })();
+    </script>
+</body>
+</html>
