@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斜板運動虛擬實驗室 | Physics Virtual Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+        }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .chart-container {
+            position: relative;
+            height: 30%;
+            min-height: 120px;
+            margin-bottom: 0.5rem;
+            background: #00000030;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .chart-title {
+            position: absolute;
+            top: 4px; left: 8px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .chart-legend {
+            position: absolute;
+            top: 4px; right: 8px;
+            font-size: 0.65rem;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        /* Tab Styles */
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .tab-btn:hover:not(.active) {
+            color: var(--text-main);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col text-sm">
+
+    <!-- Header & Tabs -->
+    <header class="flex-shrink-0 border-b border-slate-700 bg-slate-900/80 z-20 flex flex-col">
+        <div class="h-14 flex items-center justify-between px-6">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center border border-blue-500/50">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-slate-100 tracking-wide" data-i18n="title">斜板運動虛擬實驗室</h1>
+                    <p class="text-[10px] text-blue-400 font-mono" data-i18n="subtitle">高真實感物理數值引擎 v2.0</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                    <button id="btn-lang-zh" class="px-3 py-1 rounded-md bg-slate-600 text-white text-xs transition-colors" onclick="setLang('zh')">繁</button>
+                    <button id="btn-lang-en" class="px-3 py-1 rounded-md text-slate-400 hover:text-white text-xs transition-colors" onclick="setLang('en')">EN</button>
+                </div>
+            </div>
+        </div>
+        <!-- Tabs -->
+        <div class="flex px-6 bg-slate-900 border-t border-slate-800">
+            <button class="tab-btn active" id="tab-1" onclick="switchTab(1)" data-i18n="tab_fixed">情景一：固定斜板 (Fixed Incline)</button>
+            <button class="tab-btn" id="tab-2" onclick="switchTab(2)" data-i18n="tab_movable">情景二：可動三角木 (Movable Wedge)</button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- Left Panel: Controls & Data -->
+        <aside class="w-full lg:w-80 flex-shrink-0 flex flex-col border-r border-slate-700 bg-slate-900/50 overflow-y-auto p-4 gap-4 z-10 custom-scrollbar">
+            
+            <!-- Playback Controls -->
+            <div class="glass-panel p-4 flex justify-between items-center">
+                <button id="btn-play" class="flex-1 mr-2 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors flex justify-center items-center gap-2" onclick="togglePlay()">
+                    <span id="icon-play">▶</span> <span data-i18n="btn_start">開始 (Play)</span>
+                </button>
+                <button class="w-12 py-2 rounded bg-slate-700 hover:bg-slate-600 flex justify-center items-center transition-colors" onclick="resetSim()" title="Reset">
+                    ↺
+                </button>
+            </div>
+
+            <!-- Dashboard -->
+            <div class="glass-panel p-4">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3" data-i18n="dashboard">實時數據 (Real-time Data)</h2>
+                <div class="grid grid-cols-2 gap-y-2 gap-x-2 font-mono text-xs">
+                    <div class="text-slate-400 col-span-2">t : <span id="val-t" class="text-white text-sm">0.00</span> s</div>
+                    
+                    <div class="col-span-2 text-[10px] text-blue-400 mt-1 border-t border-slate-700 pt-1" data-i18n="dash_block">木塊 (Block)</div>
+                    <div class="text-slate-400">s: <span id="val-s" class="text-white">0.00</span> m</div>
+                    <div class="text-slate-400">v: <span id="val-v" class="text-cyan-400">0.00</span> m/s</div>
+                    <div class="text-slate-400 col-span-2">a: <span id="val-a" class="text-orange-400">0.00</span> m/s²</div>
+                    
+                    <div id="dash-wedge" class="col-span-2 grid grid-cols-2 gap-y-2 gap-x-2 hidden">
+                        <div class="col-span-2 text-[10px] text-pink-400 mt-1 border-t border-slate-700 pt-1" data-i18n="dash_wedge">三角木 (Wedge)</div>
+                        <div class="text-slate-400">X: <span id="val-X" class="text-white">0.00</span> m</div>
+                        <div class="text-slate-400">V: <span id="val-V" class="text-pink-400">0.00</span> m/s</div>
+                        <div class="text-slate-400 col-span-2">A: <span id="val-A" class="text-orange-400">0.00</span> m/s²</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physics Parameters -->
+            <div class="glass-panel p-4 flex-1">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4" data-i18n="parameters">物理參數 (Parameters)</h2>
+                
+                <div class="space-y-4">
+                    <!-- Angle (Common) -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-slate-300" data-i18n="param_angle">斜面傾角 <span class="italic text-slate-500">θ</span></label>
+                            <span class="font-mono text-blue-400"><span id="lbl-angle">30</span>°</span>
+                        </div>
+                        <input type="range" id="sl-angle" min="10" max="70" step="1" value="30">
+                    </div>
+
+                    <!-- Block Mass (Common) -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-slate-300" data-i18n="param_mass">木塊質量 <span class="italic text-slate-500">m</span></label>
+                            <span class="font-mono text-blue-400"><span id="lbl-mass">5.0</span> kg</span>
+                        </div>
+                        <input type="range" id="sl-mass" min="0.5" max="20" step="0.5" value="5">
+                    </div>
+
+                    <!-- Wedge Mass (Tab 2 only) -->
+                    <div id="param-M" class="hidden border-l-2 border-pink-500/50 pl-2">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-slate-300" data-i18n="param_wedge_mass">三角木質量 <span class="italic text-slate-500">M</span></label>
+                            <span class="font-mono text-pink-400"><span id="lbl-M">10.0</span> kg</span>
+                        </div>
+                        <input type="range" id="sl-M" min="1" max="50" step="1" value="10">
+                    </div>
+
+                    <!-- Block Friction (Common) -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-slate-300" data-i18n="param_mu">木塊摩擦係數 <span class="italic text-slate-500">μ<sub>k</sub></span></label>
+                            <span class="font-mono text-blue-400"><span id="lbl-mu">0.20</span></span>
+                        </div>
+                        <input type="range" id="sl-mu" min="0" max="0.8" step="0.05" value="0.2">
+                    </div>
+
+                    <!-- Floor Friction (Tab 2 only) -->
+                    <div id="param-muFloor" class="hidden border-l-2 border-pink-500/50 pl-2">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-slate-300" data-i18n="param_muFloor">地板摩擦係數 <span class="italic text-slate-500">μ<sub>floor</sub></span></label>
+                            <span class="font-mono text-pink-400"><span id="lbl-muFloor">0.10</span></span>
+                        </div>
+                        <input type="range" id="sl-muFloor" min="0" max="0.8" step="0.05" value="0.1">
+                    </div>
+
+                    <!-- Push Force (Changes target based on Tab) -->
+                    <div class="pt-2 border-t border-slate-700">
+                        <div class="flex justify-between mb-1">
+                            <label id="label-push" class="text-slate-300 font-bold" data-i18n="param_push_block">木塊平行推力 <span class="italic text-slate-500">F<sub>push</sub></span></label>
+                            <span class="font-mono text-red-400"><span id="lbl-push">0</span> N</span>
+                        </div>
+                        <input type="range" id="sl-push" min="-200" max="200" step="5" value="0">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1" id="desc-push">
+                            <span data-i18n="dir_down">下滑方向 (-)</span>
+                            <span data-i18n="dir_up">上推方向 (+)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Display Options -->
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-6 mb-3 border-t border-slate-700 pt-4" data-i18n="visual_opts">視覺與向量分析 (Visuals)</h2>
+                <div class="space-y-2">
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" id="cb-show-vectors" class="form-checkbox h-4 w-4 text-blue-500 rounded border-slate-600 bg-slate-700" checked>
+                        <span class="text-slate-300 group-hover:text-white" data-i18n="opt_show_vectors">顯示木塊受力 (Block Forces)</span>
+                    </label>
+
+                    <div id="decomp-box" class="ml-6 space-y-1 border-l-2 border-slate-700 pl-3">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="decomp" value="none" class="text-blue-500 bg-slate-700 border-slate-600" checked>
+                            <span class="text-slate-400 text-xs" data-i18n="opt_decomp_none">不拆分</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="decomp" value="parallel" class="text-blue-500 bg-slate-700 border-slate-600">
+                            <span class="text-slate-400 text-xs" data-i18n="opt_decomp_parallel">平行/垂直分量</span>
+                        </label>
+                    </div>
+
+                    <label id="opt-wedge-forces" class="flex items-center space-x-2 cursor-pointer group hidden mt-2">
+                        <input type="checkbox" id="cb-show-wedge-vectors" class="form-checkbox h-4 w-4 text-pink-500 rounded border-slate-600 bg-slate-700" checked>
+                        <span class="text-slate-300 group-hover:text-white" data-i18n="opt_show_wedge_vectors">顯示三角木受力 (Wedge Forces)</span>
+                    </label>
+
+                    <label class="flex items-center space-x-2 cursor-pointer group mt-2 border-t border-slate-700 pt-2">
+                        <input type="checkbox" id="cb-show-trail" class="form-checkbox h-4 w-4 text-blue-500 rounded border-slate-600 bg-slate-700" checked>
+                        <span class="text-slate-300 group-hover:text-white" data-i18n="opt_show_trail">顯示運動軌跡 (Trajectory Trail)</span>
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center Panel: Canvas Simulation -->
+        <section class="flex-1 relative flex flex-col bg-slate-950">
+            <!-- Legend -->
+            <div class="absolute top-4 left-4 z-10 glass-panel p-3 text-[10px] sm:text-xs flex flex-col gap-1 pointer-events-none">
+                <div class="font-bold text-slate-400 mb-1" data-i18n="legend_forces">受力圖例</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-1 bg-yellow-500"></div><span class="text-slate-300">重力 (W)</span></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-1 bg-indigo-400"></div><span class="text-slate-300">法向力 (N)</span></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-1 bg-green-400"></div><span class="text-slate-300">摩擦力 (f)</span></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-1 bg-red-400"></div><span class="text-slate-300">推力 (F<sub>push</sub>)</span></div>
+                <div class="w-full h-px bg-slate-700 my-1"></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-1 bg-cyan-400"></div><span class="text-slate-300" data-i18n="legend_v_block">木塊速度/加速度</span></div>
+                <div id="legend-wedge" class="flex items-center gap-2 hidden"><div class="w-3 h-1 bg-pink-400"></div><span class="text-slate-300" data-i18n="legend_v_wedge">三角木速度/加速度</span></div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="canvas-container" class="flex-1 relative w-full h-full overflow-hidden">
+                <canvas id="sim-canvas"></canvas>
+            </div>
+            
+            <!-- Scale Indicator -->
+            <div class="absolute bottom-4 left-4 z-10 text-xs text-slate-500 font-mono pointer-events-none">
+                Scale: 1m = <span id="scale-indicator">40</span>px
+            </div>
+        </section>
+
+        <!-- Right Panel: Real-time Charts -->
+        <aside class="w-full lg:w-72 flex-shrink-0 flex flex-col border-l border-slate-700 bg-slate-900 p-4 z-10 custom-scrollbar overflow-y-auto">
+            <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4" data-i18n="charts">運動學圖表 (Kinematics)</h2>
+            
+            <div class="flex-1 flex flex-col gap-2">
+                <!-- s-t graph -->
+                <div class="chart-container">
+                    <span class="chart-title" data-i18n="chart_pos">位置 - 時間圖</span>
+                    <div class="chart-legend" id="legend-s">
+                        <span class="text-blue-400">■ Block(s)</span>
+                        <span class="text-pink-400 hidden wedge-legend">■ Wedge(X)</span>
+                    </div>
+                    <canvas id="chart-s"></canvas>
+                </div>
+                <!-- v-t graph -->
+                <div class="chart-container">
+                    <span class="chart-title" data-i18n="chart_vel">速度 - 時間圖</span>
+                    <div class="chart-legend" id="legend-v">
+                        <span class="text-cyan-400">■ Block(v)</span>
+                        <span class="text-pink-400 hidden wedge-legend">■ Wedge(V)</span>
+                    </div>
+                    <canvas id="chart-v"></canvas>
+                </div>
+                <!-- a-t graph -->
+                <div class="chart-container">
+                    <span class="chart-title" data-i18n="chart_acc">加速度 - 時間圖</span>
+                    <div class="chart-legend" id="legend-a">
+                        <span class="text-orange-400">■ Block(a)</span>
+                        <span class="text-pink-400 hidden wedge-legend">■ Wedge(A)</span>
+                    </div>
+                    <canvas id="chart-a"></canvas>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // --- 1. State & Configuration ---
+        const STATE = { IDLE: 0, RUNNING: 1, PAUSED: 2 };
+        let currentState = STATE.IDLE;
+        let currentTab = 1; // 1: Fixed Incline, 2: Movable Wedge
+        
+        const g = 9.81;
+        let PIXELS_PER_METER = 45; 
+        const VECTOR_SCALE = 1.5; // Visual length scaling for forces
+        const KINEMATIC_VECTOR_SCALE = 15; 
+        const MAX_HISTORY = 300; 
+        
+        // Physics State
+        let phy = {
+            t: 0,
+            // Block (Relative to Wedge)
+            s: 4,           // Position along incline (m). 0 is bottom.
+            v: 0,           // Velocity up incline (m/s).
+            a: 0,           // Acceleration up incline (m/s^2).
+            N: 0,           // Normal force between block and wedge
+            fFric: 0,       // Friction between block and wedge (+ is up incline)
+            // Wedge (Absolute Horizontal)
+            X: 2,           // Horizontal position (m).
+            V: 0,           // Horizontal velocity (m/s). Right is +.
+            A: 0,           // Horizontal acceleration (m/s^2).
+            Nf: 0,          // Normal force from floor
+            fFloor: 0       // Friction from floor (+ is right)
+        };
+
+        // Parameters
+        let params = {
+            m: 5.0,         // Block Mass (kg)
+            M: 10.0,        // Wedge Mass (kg)
+            theta: 30,      // Angle (degrees)
+            mu: 0.2,        // Block friction
+            muFloor: 0.1,   // Floor friction
+            fPush: 0,       // Applied force (N). Tab 1 -> Block parallel. Tab 2 -> Wedge horizontal.
+            planeLength: 12 // Length of incline (m)
+        };
+
+        const blockDim = { w: 1.2, h: 0.8 };
+        let trail = []; // {absX, absY}
+        let lastTrailTime = 0;
+        let chartData = []; // {t, s, v, a, X, V, A}
+
+        // --- 2. DOM Elements ---
+        const ui = {
+            canvas: document.getElementById('sim-canvas'),
+            ctx: document.getElementById('sim-canvas').getContext('2d'),
+            container: document.getElementById('canvas-container'),
+            chartS: document.getElementById('chart-s'),
+            chartV: document.getElementById('chart-v'),
+            chartA: document.getElementById('chart-a'),
+            btnPlay: document.getElementById('btn-play'),
+            // Values
+            valT: document.getElementById('val-t'),
+            valS: document.getElementById('val-s'), valV: document.getElementById('val-v'), valA: document.getElementById('val-a'),
+            valX: document.getElementById('val-X'), valV_w: document.getElementById('val-V'), valA_w: document.getElementById('val-A'),
+            // Inputs
+            slMass: document.getElementById('sl-mass'), lblMass: document.getElementById('lbl-mass'),
+            slM: document.getElementById('sl-M'), lblM: document.getElementById('lbl-M'),
+            slAngle: document.getElementById('sl-angle'), lblAngle: document.getElementById('lbl-angle'),
+            slMu: document.getElementById('sl-mu'), lblMu: document.getElementById('lbl-mu'),
+            slMuFloor: document.getElementById('sl-muFloor'), lblMuFloor: document.getElementById('lbl-muFloor'),
+            slPush: document.getElementById('sl-push'), lblPush: document.getElementById('lbl-push'),
+            labelPush: document.getElementById('label-push'), descPush: document.getElementById('desc-push'),
+            // Toggles
+            cbVectors: document.getElementById('cb-show-vectors'),
+            cbWedgeVectors: document.getElementById('cb-show-wedge-vectors'),
+            cbTrail: document.getElementById('cb-show-trail'),
+            radiosDecomp: document.getElementsByName('decomp'),
+            scaleInd: document.getElementById('scale-indicator')
+        };
+
+        ui.scaleInd.innerText = PIXELS_PER_METER;
+
+        // --- 3. UI logic & Initialization ---
+        window.switchTab = function(tabIndex) {
+            currentTab = tabIndex;
+            document.getElementById('tab-1').classList.toggle('active', tabIndex === 1);
+            document.getElementById('tab-2').classList.toggle('active', tabIndex === 2);
+            
+            // Toggle UI Elements
+            document.getElementById('param-M').classList.toggle('hidden', tabIndex === 1);
+            document.getElementById('param-muFloor').classList.toggle('hidden', tabIndex === 1);
+            document.getElementById('dash-wedge').classList.toggle('hidden', tabIndex === 1);
+            document.getElementById('opt-wedge-forces').classList.toggle('hidden', tabIndex === 1);
+            document.getElementById('legend-wedge').classList.toggle('hidden', tabIndex === 1);
+            
+            document.querySelectorAll('.wedge-legend').forEach(el => el.classList.toggle('hidden', tabIndex === 1));
+
+            // Adjust Push Slider meaning
+            if (tabIndex === 1) {
+                ui.labelPush.innerHTML = (currentLang==='zh'?'木塊平行推力':'Block Push Force') + ' <span class="italic text-slate-500">F<sub>push</sub></span>';
+                ui.descPush.innerHTML = `<span data-i18n="dir_down">${currentLang==='zh'?'下滑方向 (-)':'Down Incline (-)'}</span><span data-i18n="dir_up">${currentLang==='zh'?'上推方向 (+)':'Up Incline (+)'}</span>`;
+            } else {
+                ui.labelPush.innerHTML = (currentLang==='zh'?'三角木水平推力':'Wedge Push Force') + ' <span class="italic text-slate-500">F<sub>push</sub></span>';
+                ui.descPush.innerHTML = `<span data-i18n="dir_left">${currentLang==='zh'?'向左推 (-)':'Left (-)'}</span><span data-i18n="dir_right">${currentLang==='zh'?'向右推 (+)':'Right (+)'}</span>`;
+            }
+            ui.slPush.value = 0;
+            params.fPush = 0;
+            ui.lblPush.innerText = '0';
+
+            // Visual adjustment for camera
+            phy.X = tabIndex === 1 ? 0 : 2; 
+
+            resetSim();
+        };
+
+        function initEvents() {
+            const bindSlider = (sl, lbl, paramKey, isInt = false) => {
+                sl.addEventListener('input', (e) => {
+                    let val = parseFloat(e.target.value);
+                    params[paramKey] = val;
+                    lbl.innerText = isInt ? val.toFixed(0) : val.toFixed(2);
+                    if (currentState !== STATE.RUNNING) {
+                        calculateStaticForces();
+                        render();
+                    }
+                });
+            };
+            
+            bindSlider(ui.slMass, ui.lblMass, 'm');
+            bindSlider(ui.slM, ui.lblM, 'M');
+            bindSlider(ui.slAngle, ui.lblAngle, 'theta', true);
+            bindSlider(ui.slMu, ui.lblMu, 'mu');
+            bindSlider(ui.slMuFloor, ui.lblMuFloor, 'muFloor');
+            bindSlider(ui.slPush, ui.lblPush, 'fPush', true);
+
+            ui.cbVectors.addEventListener('change', render);
+            ui.cbWedgeVectors.addEventListener('change', render);
+            ui.cbTrail.addEventListener('change', render);
+            Array.from(ui.radiosDecomp).forEach(r => r.addEventListener('change', render));
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+        }
+
+        function resizeCanvas() {
+            ui.canvas.width = ui.container.clientWidth;
+            ui.canvas.height = ui.container.clientHeight;
+            
+            // Adjust scale based on screen width
+            if (ui.canvas.width < 600) PIXELS_PER_METER = 30;
+            else PIXELS_PER_METER = 45;
+            ui.scaleInd.innerText = PIXELS_PER_METER;
+
+            const resizeChart = (canvas) => {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+            };
+            resizeChart(ui.chartS); resizeChart(ui.chartV); resizeChart(ui.chartA);
+            if (currentState !== STATE.RUNNING) render();
+        }
+
+        // --- 4. Physics Engine ---
+        function calculateStaticForces() {
+            let thetaRad = params.theta * Math.PI / 180;
+            let sinT = Math.sin(thetaRad);
+            let cosT = Math.cos(thetaRad);
+
+            if (currentTab === 1) {
+                phy.A = 0; phy.V = 0;
+                phy.N = params.m * g * cosT;
+                let W_par = -params.m * g * sinT;
+                let F_ext = W_par + params.fPush;
+                let maxFric = params.mu * phy.N;
+                
+                if (Math.abs(phy.v) < 0.01 && currentState === STATE.IDLE) {
+                    if (Math.abs(F_ext) <= maxFric) {
+                        phy.fFric = -F_ext; phy.a = 0;
+                    } else {
+                        phy.fFric = -Math.sign(F_ext) * maxFric;
+                        phy.a = (F_ext + phy.fFric) / params.m;
+                    }
+                }
+            } else {
+                // Tab 2 Static Analysis
+                let max_f_f_stuck = params.muFloor * (params.M + params.m) * g;
+                if (currentState === STATE.IDLE && Math.abs(phy.V) < 0.01) {
+                    if (Math.abs(params.fPush) <= max_f_f_stuck) {
+                        phy.A = 0; phy.fFloor = -params.fPush;
+                    } else {
+                        phy.fFloor = -Math.sign(params.fPush) * max_f_f_stuck;
+                        phy.A = (params.fPush + phy.fFloor) / (params.M + params.m);
+                    }
+                }
+                
+                phy.N = params.m * (g * cosT - phy.A * sinT);
+                let f_stuck = params.m * (g * sinT + phy.A * cosT);
+                
+                if (Math.abs(phy.v) < 0.01 && currentState === STATE.IDLE) {
+                    if (Math.abs(f_stuck) <= params.mu * phy.N) {
+                        phy.fFric = f_stuck; phy.a = 0;
+                    } else {
+                        phy.fFric = -Math.sign(f_stuck) * params.mu * phy.N;
+                        phy.a = -g * sinT + phy.fFric / params.m - phy.A * cosT;
+                    }
+                }
+                phy.Nf = params.M * g + phy.N * cosT + phy.fFric * sinT;
+            }
+        }
+
+        function physicsStep(dt) {
+            let thetaRad = params.theta * Math.PI / 180;
+            let sinT = Math.sin(thetaRad);
+            let cosT = Math.cos(thetaRad);
+
+            // Floor Bounds for wedge
+            let wedgeHitWall = false;
+            // Limit wedge movement visually (e.g. max X = 15m)
+            if (phy.X > 15 && phy.V > 0) wedgeHitWall = true;
+            if (phy.X < -5 && phy.V < 0) wedgeHitWall = true;
+
+            if (currentTab === 1) {
+                // FIXED INCLINE
+                phy.A = 0; phy.V = 0; phy.X = 0;
+                phy.N = params.m * g * cosT;
+                let W_par = -params.m * g * sinT;
+                let F_ext = W_par + params.fPush;
+                let maxFric = params.mu * phy.N;
+
+                // Ground boundary
+                if (phy.s <= 0 && phy.v <= 0 && F_ext - maxFric <= 0) {
+                    phy.s = 0; phy.v = 0; phy.a = 0; phy.fFric = -F_ext;
+                } else {
+                    if (Math.abs(phy.v) < 0.01) {
+                        if (Math.abs(F_ext) <= maxFric) {
+                            phy.v = 0; phy.a = 0; phy.fFric = -F_ext;
+                        } else {
+                            phy.fFric = -Math.sign(F_ext) * maxFric;
+                            phy.a = (F_ext + phy.fFric) / params.m;
+                        }
+                    } else {
+                        phy.fFric = -Math.sign(phy.v) * maxFric;
+                        let F_drag = -Math.sign(phy.v) * 0.05 * phy.v * phy.v; // slight drag
+                        phy.a = (F_ext + phy.fFric + F_drag) / params.m;
+                    }
+                }
+
+                phy.v += phy.a * dt;
+                phy.s += phy.v * dt;
+
+            } else {
+                // MOVABLE WEDGE (Coupled System)
+                let A_stuck = 0;
+                let N_f_stuck = (params.M + params.m) * g;
+                let max_f_f_stuck = params.muFloor * N_f_stuck;
+
+                // Wedge acceleration if block is stuck
+                if (wedgeHitWall) {
+                    A_stuck = 0; phy.V = 0;
+                } else if (Math.abs(phy.V) < 0.01) {
+                    if (Math.abs(params.fPush) <= max_f_f_stuck) A_stuck = 0;
+                    else A_stuck = (params.fPush - Math.sign(params.fPush) * max_f_f_stuck) / (params.M + params.m);
+                } else {
+                    A_stuck = (params.fPush - Math.sign(phy.V) * max_f_f_stuck) / (params.M + params.m);
+                }
+
+                let N_stuck = params.m * (g * cosT - A_stuck * sinT);
+                let f_stuck = params.m * (g * sinT + A_stuck * cosT); // Required friction to stay stuck
+
+                // Check slip condition
+                let blockSlips = Math.abs(phy.v) > 0.01 || Math.abs(f_stuck) > params.mu * N_stuck;
+                // Bottom boundary logic overrides slip if at bottom and pushed down
+                if (phy.s <= 0 && phy.v <= 0 && (!blockSlips || f_stuck < 0)) {
+                    blockSlips = false; // forced stuck at bottom
+                    phy.s = 0; phy.v = 0;
+                }
+
+                if (!blockSlips) {
+                    // Block is stuck to wedge
+                    phy.A = A_stuck;
+                    phy.a = 0;
+                    phy.v = 0;
+                    phy.N = N_stuck;
+                    phy.fFric = f_stuck; 
+                    phy.Nf = N_f_stuck;
+                    if (wedgeHitWall) phy.fFloor = -params.fPush;
+                    else phy.fFloor = (phy.A === 0) ? -params.fPush : -Math.sign(phy.V) * max_f_f_stuck;
+                } else {
+                    // Block is sliding! Exact solution.
+                    let dir_v = Math.abs(phy.v) > 0.01 ? Math.sign(phy.v) : -Math.sign(f_stuck);
+                    let mu_k = params.mu;
+                    let C1 = sinT + mu_k * dir_v * cosT;
+                    let C2 = cosT - mu_k * dir_v * sinT;
+                    
+                    let dir_V = Math.abs(phy.V) > 0.01 ? Math.sign(phy.V) : 0;
+                    let mu_f = params.muFloor;
+                    
+                    // Compute forces assuming wedge is static
+                    let N_A0 = params.m * g * cosT;
+                    let f_A0 = -mu_k * dir_v * N_A0;
+                    let Nf_A0 = params.M * g + N_A0 * cosT + f_A0 * sinT;
+                    let F_wedge_net_A0 = params.fPush + N_A0 * sinT - f_A0 * cosT;
+                    
+                    if (wedgeHitWall || (dir_V === 0 && Math.abs(F_wedge_net_A0) <= mu_f * Nf_A0)) {
+                        // Wedge stuck
+                        phy.A = 0; phy.V = 0;
+                        phy.N = N_A0; phy.fFric = f_A0; phy.Nf = Nf_A0;
+                        phy.fFloor = -F_wedge_net_A0;
+                    } else {
+                        // Wedge moving
+                        dir_V = dir_V !== 0 ? dir_V : Math.sign(F_wedge_net_A0);
+                        let mu_f_prime = mu_f * dir_V;
+                        
+                        let num = params.fPush + params.m * g * cosT * (C1 - mu_f_prime * C2) - mu_f_prime * params.M * g;
+                        let den = params.M + params.m * sinT * (C1 - mu_f_prime * C2);
+                        
+                        phy.A = num / den;
+                        phy.N = params.m * (g * cosT - phy.A * sinT);
+                        // Prevent negative normal force (flying off)
+                        if(phy.N < 0) { phy.N = 0; phy.A = (params.fPush - mu_f_prime*params.M*g)/params.M; }
+                        
+                        phy.fFric = -mu_k * dir_v * phy.N;
+                        phy.Nf = params.M * g + phy.N * cosT + phy.fFric * sinT;
+                        phy.fFloor = -mu_f_prime * phy.Nf;
+                    }
+                    
+                    phy.a = -g * sinT + phy.fFric / params.m - phy.A * cosT;
+                }
+
+                // Integration
+                phy.V += phy.A * dt;
+                phy.X += phy.V * dt;
+                phy.v += phy.a * dt;
+                phy.s += phy.v * dt;
+            }
+
+            // Common boundary handling
+            if (phy.s < 0) {
+                phy.s = 0;
+                if (phy.v < -0.5) phy.v = -phy.v * 0.2; else phy.v = 0;
+            }
+            if (phy.s >= params.planeLength && phy.v > 0) {
+                phy.s = params.planeLength; phy.v = 0; // Hit top
+            }
+
+            phy.t += dt;
+
+            // Record Data
+            if (phy.t - lastTrailTime > 0.05) {
+                let thetaRad = params.theta * Math.PI / 180;
+                let absX = phy.X + phy.s * Math.cos(thetaRad) - (blockDim.h/2) * Math.sin(thetaRad);
+                let absY = phy.s * Math.sin(thetaRad) + (blockDim.h/2) * Math.cos(thetaRad);
+                
+                trail.push({x: absX, y: absY});
+                if(trail.length > 150) trail.shift();
+                
+                chartData.push({
+                    t: phy.t, 
+                    s: phy.s, v: phy.v, a: phy.a,
+                    X: phy.X, V: phy.V, A: phy.A
+                });
+                if(chartData.length > MAX_HISTORY) chartData.shift();
+                
+                lastTrailTime = phy.t;
+                updateDashboard();
+                drawCharts();
+            }
+        }
+
+        // --- 5. Rendering ---
+        function toCanvas(physX, physY) {
+            // Camera centers somewhat on the starting area
+            const padX = ui.canvas.width * (currentTab === 1 ? 0.15 : 0.2); 
+            const padY = ui.canvas.height * 0.85; 
+            return {
+                x: padX + physX * PIXELS_PER_METER,
+                y: padY - physY * PIXELS_PER_METER
+            };
+        }
+
+        function drawArrow(ctx, startPxX, startPxY, lengthPx, angleRad, color, lineWidth=2, dashed=false) {
+            if (Math.abs(lengthPx) < 1) return;
+            // Support negative length by flipping angle
+            if (lengthPx < 0) {
+                lengthPx = Math.abs(lengthPx);
+                angleRad += Math.PI;
+            }
+
+            ctx.beginPath(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lineWidth;
+            if (dashed) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
+
+            let endX = startPxX + lengthPx * Math.cos(angleRad);
+            let endY = startPxY - lengthPx * Math.sin(angleRad); // Canvas Y down
+
+            ctx.moveTo(startPxX, startPxY); ctx.lineTo(endX, endY); ctx.stroke();
+            ctx.setLineDash([]);
+
+            let headLen = Math.min(10, lengthPx * 0.3);
+            let headAngle = Math.PI / 6;
+            ctx.beginPath(); ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headLen * Math.cos(angleRad - headAngle), endY + headLen * Math.sin(angleRad - headAngle));
+            ctx.lineTo(endX - headLen * Math.cos(angleRad + headAngle), endY + headLen * Math.sin(angleRad + headAngle));
+            ctx.fill();
+        }
+
+        function render() {
+            let ctx = ui.ctx;
+            ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+            let thetaRad = params.theta * Math.PI / 180;
+            let L = params.planeLength;
+            
+            // 1. Draw Environment
+            let originPx = toCanvas(phy.X, 0);
+            let topPx = toCanvas(phy.X + L * Math.cos(thetaRad), L * Math.sin(thetaRad));
+            let rightBasePx = toCanvas(phy.X + L * Math.cos(thetaRad), 0);
+
+            // Ground line
+            ctx.beginPath(); ctx.strokeStyle = '#475569'; ctx.lineWidth = 2;
+            let gLeft = toCanvas(-10, 0); let gRight = toCanvas(30, 0);
+            ctx.moveTo(gLeft.x, gLeft.y); ctx.lineTo(gRight.x, gRight.y); ctx.stroke();
+
+            // Wedge
+            ctx.beginPath();
+            ctx.fillStyle = currentTab === 1 ? '#334155' : '#475569'; // slightly brighter if movable
+            ctx.moveTo(originPx.x, originPx.y);
+            ctx.lineTo(topPx.x, topPx.y);
+            ctx.lineTo(rightBasePx.x, rightBasePx.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Incline Surface Line
+            ctx.beginPath(); ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 4;
+            ctx.moveTo(originPx.x, originPx.y); ctx.lineTo(topPx.x, topPx.y); ctx.stroke();
+
+            // 2. Draw Trails
+            if (ui.cbTrail.checked && trail.length > 0) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+                trail.forEach(pt => {
+                    let px = toCanvas(pt.x, pt.y);
+                    ctx.beginPath(); ctx.arc(px.x, px.y, 2, 0, Math.PI * 2); ctx.fill();
+                });
+            }
+
+            // 3. Draw Block
+            let bw = blockDim.w; let bh = blockDim.h;
+            let cmX = phy.X + phy.s * Math.cos(thetaRad) - (bh/2) * Math.sin(thetaRad);
+            let cmY = phy.s * Math.sin(thetaRad) + (bh/2) * Math.cos(thetaRad);
+            let cmPx = toCanvas(cmX, cmY);
+
+            ctx.save();
+            ctx.translate(cmPx.x, cmPx.y);
+            ctx.rotate(-thetaRad); // Rotate to incline frame
+            
+            let bpX = -bw/2 * PIXELS_PER_METER; let bpY = -bh/2 * PIXELS_PER_METER;
+            let bpW = bw * PIXELS_PER_METER; let bpH = bh * PIXELS_PER_METER;
+
+            ctx.fillStyle = '#38bdf8'; ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 2;
+            ctx.fillRect(bpX, bpY, bpW, bpH); ctx.strokeRect(bpX, bpY, bpW, bpH);
+            
+            ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            // 4. Force Vectors
+            let decompMode = 'none';
+            for (let r of ui.radiosDecomp) { if (r.checked) decompMode = r.value; }
+
+            // Block Forces
+            if (ui.cbVectors.checked) {
+                let W = params.m * g;
+                
+                if (decompMode === 'none') {
+                    drawArrow(ctx, cmPx.x, cmPx.y, W * VECTOR_SCALE, 3*Math.PI/2, '#eab308'); // W
+                    drawArrow(ctx, cmPx.x, cmPx.y, phy.N * VECTOR_SCALE, thetaRad + Math.PI/2, '#818cf8'); // N
+                    if (Math.abs(phy.fFric) > 0.1) {
+                        let fAngle = phy.fFric > 0 ? thetaRad : thetaRad + Math.PI;
+                        let surfPx = toCanvas(phy.X + phy.s * Math.cos(thetaRad), phy.s * Math.sin(thetaRad));
+                        drawArrow(ctx, surfPx.x, surfPx.y, Math.abs(phy.fFric) * VECTOR_SCALE, fAngle, '#4ade80', 3); // f
+                    }
+                } else if (decompMode === 'parallel') {
+                    let W_perp = W * Math.cos(thetaRad); let W_par = W * Math.sin(thetaRad);
+                    drawArrow(ctx, cmPx.x, cmPx.y, W_perp * VECTOR_SCALE, thetaRad + 3*Math.PI/2, '#fef08a', 2, true);
+                    drawArrow(ctx, cmPx.x, cmPx.y, W_par * VECTOR_SCALE, thetaRad + Math.PI, '#fef08a', 2, true);
+                    drawArrow(ctx, cmPx.x, cmPx.y, phy.N * VECTOR_SCALE, thetaRad + Math.PI/2, '#818cf8');
+                    if (Math.abs(phy.fFric) > 0.1) {
+                        drawArrow(ctx, cmPx.x, cmPx.y, Math.abs(phy.fFric) * VECTOR_SCALE, phy.fFric > 0 ? thetaRad : thetaRad + Math.PI, '#4ade80');
+                    }
+                }
+
+                // Push Force on Block (Tab 1)
+                if (currentTab === 1 && Math.abs(params.fPush) > 0.1) {
+                    let pushAngle = params.fPush > 0 ? thetaRad : thetaRad + Math.PI;
+                    drawArrow(ctx, cmPx.x, cmPx.y, Math.abs(params.fPush) * VECTOR_SCALE, pushAngle, '#f87171', 3);
+                }
+
+                // Kinematics Block
+                let kOriginX = cmPx.x - 30 * Math.sin(thetaRad); let kOriginY = cmPx.y + 30 * Math.cos(thetaRad);
+                if (Math.abs(phy.v) > 0.1) drawArrow(ctx, kOriginX, kOriginY, Math.abs(phy.v) * KINEMATIC_VECTOR_SCALE, phy.v > 0 ? thetaRad : thetaRad + Math.PI, '#22d3ee', 2);
+                if (Math.abs(phy.a) > 0.1) drawArrow(ctx, kOriginX - 10*Math.sin(thetaRad), kOriginY + 10*Math.cos(thetaRad), Math.abs(phy.a) * (KINEMATIC_VECTOR_SCALE/2), phy.a > 0 ? thetaRad : thetaRad + Math.PI, '#f97316', 2);
+            }
+
+            // Wedge Forces (Tab 2)
+            if (currentTab === 2 && ui.cbWedgeVectors.checked) {
+                let w_cm_x = phy.X + (2/3)*L*Math.cos(thetaRad);
+                let w_cm_y = (1/3)*L*Math.sin(thetaRad);
+                let wcmPx = toCanvas(w_cm_x, w_cm_y);
+                let M_W = params.M * g;
+
+                // Gravity
+                drawArrow(ctx, wcmPx.x, wcmPx.y, M_W * VECTOR_SCALE, 3*Math.PI/2, '#eab308');
+                // Normal from floor (draw at bottom center)
+                let btmPx = toCanvas(phy.X + L*Math.cos(thetaRad)/2, 0);
+                drawArrow(ctx, btmPx.x, btmPx.y, phy.Nf * VECTOR_SCALE, Math.PI/2, '#818cf8');
+                // Floor Friction
+                if (Math.abs(phy.fFloor) > 0.1) {
+                    drawArrow(ctx, btmPx.x, btmPx.y, Math.abs(phy.fFloor) * VECTOR_SCALE, phy.fFloor > 0 ? 0 : Math.PI, '#4ade80', 3);
+                }
+                // Push Force on Wedge
+                if (Math.abs(params.fPush) > 0.1) {
+                    let facePx = toCanvas(phy.X, L*Math.sin(thetaRad)/2);
+                    drawArrow(ctx, facePx.x, facePx.y, Math.abs(params.fPush) * VECTOR_SCALE, params.fPush > 0 ? 0 : Math.PI, '#f87171', 3);
+                }
+
+                // Reaction forces from Block ON Wedge (draw at contact point)
+                let contactPx = toCanvas(phy.X + phy.s * Math.cos(thetaRad), phy.s * Math.sin(thetaRad));
+                if (phy.N > 0) drawArrow(ctx, contactPx.x, contactPx.y, phy.N * VECTOR_SCALE, thetaRad + 3*Math.PI/2, '#a5b4fc', 2, true); // -N
+                if (Math.abs(phy.fFric) > 0.1) {
+                    drawArrow(ctx, contactPx.x, contactPx.y, Math.abs(phy.fFric) * VECTOR_SCALE, phy.fFric > 0 ? thetaRad + Math.PI : thetaRad, '#86efac', 2, true); // -f
+                }
+
+                // Wedge Kinematics
+                let kWedgePx = toCanvas(w_cm_x, w_cm_y + 1); // slightly above cm
+                if (Math.abs(phy.V) > 0.1) drawArrow(ctx, kWedgePx.x, kWedgePx.y, Math.abs(phy.V) * KINEMATIC_VECTOR_SCALE, phy.V > 0 ? 0 : Math.PI, '#f472b6', 2);
+                if (Math.abs(phy.A) > 0.1) drawArrow(ctx, kWedgePx.x, kWedgePx.y+15, Math.abs(phy.A) * (KINEMATIC_VECTOR_SCALE/2), phy.A > 0 ? 0 : Math.PI, '#fb923c', 2);
+            }
+        }
+
+        // --- 6. Charts ---
+        function drawMultiLineChart(canvas, linesData) {
+            let ctx = canvas.getContext('2d');
+            let w = canvas.width; let h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            if (chartData.length < 2) return;
+
+            ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+
+            // Find min/max across all lines
+            let maxVal = 1; let minVal = -1;
+            linesData.forEach(ld => {
+                chartData.forEach(d => {
+                    if (d[ld.key] > maxVal) maxVal = d[ld.key];
+                    if (d[ld.key] < minVal) minVal = d[ld.key];
+                });
+            });
+            let range = Math.max(Math.abs(maxVal), Math.abs(minVal)) * 1.2;
+            if (linesData[0].key === 's') { 
+                range = Math.max(params.planeLength, maxVal) * 1.1; 
+                minVal = currentTab === 2 ? -5 : -1; // allow negative X for wedge
+            }
+
+            let startTime = chartData[0].t;
+            let timeSpan = Math.max(5, chartData[chartData.length-1].t - startTime);
+            
+            const mapX = (t) => (t - startTime) / timeSpan * w;
+            const mapY = (val) => linesData[0].key === 's' ? h - ((val - minVal) / (range - minVal) * h) : h/2 - (val / range * (h/2));
+
+            linesData.forEach((ld, idx) => {
+                ctx.beginPath(); ctx.strokeStyle = ld.color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+                ctx.moveTo(mapX(chartData[0].t), mapY(chartData[0][ld.key]));
+                for (let i = 1; i < chartData.length; i++) {
+                    ctx.lineTo(mapX(chartData[i].t), mapY(chartData[i][ld.key]));
+                }
+                ctx.stroke();
+
+                let currentVal = chartData[chartData.length-1][ld.key];
+                ctx.fillStyle = ld.color; ctx.font = "10px monospace";
+                ctx.fillText(currentVal.toFixed(2), w - 30, mapY(currentVal) - (idx === 0 ? 5 : -12));
+            });
+        }
+
+        function drawCharts() {
+            let sLines = [{key: 's', color: '#38bdf8'}]; // cyan-400
+            let vLines = [{key: 'v', color: '#22d3ee'}];
+            let aLines = [{key: 'a', color: '#fb923c'}]; // orange-400
+
+            if (currentTab === 2) {
+                sLines.push({key: 'X', color: '#f472b6'}); // pink-400
+                vLines.push({key: 'V', color: '#f472b6'});
+                aLines.push({key: 'A', color: '#f472b6'});
+            }
+
+            drawMultiLineChart(ui.chartS, sLines);
+            drawMultiLineChart(ui.chartV, vLines);
+            drawMultiLineChart(ui.chartA, aLines);
+        }
+
+        function updateDashboard() {
+            ui.valT.innerText = phy.t.toFixed(2);
+            ui.valS.innerText = phy.s.toFixed(2);
+            ui.valV.innerText = phy.v.toFixed(2);
+            ui.valA.innerText = phy.a.toFixed(2);
+            
+            if (currentTab === 2) {
+                ui.valX.innerText = phy.X.toFixed(2);
+                ui.valV_w.innerText = phy.V.toFixed(2);
+                ui.valA_w.innerText = phy.A.toFixed(2);
+            }
+        }
+
+        // --- 7. Main Loop ---
+        let lastTime = 0; let accumulator = 0; const dt = 0.002; // 2ms resolution for high fidelity
+
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            let frameTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            if (frameTime > 0.1) frameTime = 0.1;
+
+            if (currentState === STATE.RUNNING) {
+                accumulator += frameTime;
+                while (accumulator >= dt) {
+                    physicsStep(dt);
+                    accumulator -= dt;
+                }
+                render();
+            }
+            requestAnimationFrame(loop);
+        }
+
+        window.togglePlay = function() {
+            if (currentState === STATE.RUNNING) {
+                currentState = STATE.PAUSED;
+                ui.btnPlay.innerHTML = '<span id="icon-play">▶</span> <span data-i18n="btn_resume">' + (currentLang==='zh'?'繼續 (Resume)':'Resume') + '</span>';
+                ui.btnPlay.classList.replace('bg-red-600', 'bg-blue-600');
+            } else {
+                currentState = STATE.RUNNING; lastTime = performance.now();
+                ui.btnPlay.innerHTML = '<span id="icon-play">⏸</span> <span data-i18n="btn_pause">' + (currentLang==='zh'?'暫停 (Pause)':'Pause') + '</span>';
+                ui.btnPlay.classList.replace('bg-blue-600', 'bg-red-600');
+            }
+            updateLanguageText();
+        };
+
+        window.resetSim = function() {
+            currentState = STATE.IDLE;
+            phy.t = 0; phy.s = params.planeLength * 0.7; phy.v = 0; phy.a = 0;
+            phy.X = currentTab === 1 ? 0 : 2; phy.V = 0; phy.A = 0;
+            trail = []; chartData = []; lastTrailTime = 0;
+            
+            ui.btnPlay.innerHTML = '<span id="icon-play">▶</span> <span data-i18n="btn_start">' + (currentLang==='zh'?'開始 (Play)':'Play') + '</span>';
+            ui.btnPlay.className = 'flex-1 mr-2 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors flex justify-center items-center gap-2';
+            
+            calculateStaticForces(); updateDashboard(); drawCharts(); render(); updateLanguageText();
+        };
+
+        // --- 8. i18n ---
+        const i18n = {
+            zh: {
+                title: "斜板運動虛擬實驗室", subtitle: "高真實感物理數值引擎 v2.0",
+                tab_fixed: "情景一：固定斜板", tab_movable: "情景二：可動三角木",
+                btn_start: "開始 (Play)", btn_pause: "暫停 (Pause)", btn_resume: "繼續 (Resume)",
+                dashboard: "實時數據 (Real-time Data)", dash_block: "木塊 (Block)", dash_wedge: "三角木 (Wedge)",
+                parameters: "物理參數 (Parameters)", visual_opts: "視覺與向量分析 (Visuals)", charts: "運動學圖表 (Kinematics)",
+                param_mass: "木塊質量", param_wedge_mass: "三角木質量", param_angle: "斜面傾角", param_mu: "木塊摩擦係數", param_muFloor: "地板摩擦係數",
+                param_push_block: "木塊平行推力", param_push_wedge: "三角木水平推力",
+                dir_down: "下滑方向 (-)", dir_up: "上推方向 (+)", dir_left: "向左推 (-)", dir_right: "向右推 (+)",
+                opt_show_vectors: "顯示木塊受力 (Block Forces)", opt_show_wedge_vectors: "顯示三角木受力 (Wedge Forces)", opt_show_trail: "顯示運動軌跡 (Trajectory Trail)",
+                opt_decomp_none: "不拆分", opt_decomp_parallel: "平行/垂直分量",
+                chart_pos: "位置 - 時間圖", chart_vel: "速度 - 時間圖", chart_acc: "加速度 - 時間圖",
+                legend_forces: "受力圖例", legend_v_block: "木塊速度/加速度", legend_v_wedge: "三角木速度/加速度"
+            },
+            en: {
+                title: "Inclined Plane Virtual Lab", subtitle: "High-Fidelity Physics Engine v2.0",
+                tab_fixed: "Scenario 1: Fixed Incline", tab_movable: "Scenario 2: Movable Wedge",
+                btn_start: "Play", btn_pause: "Pause", btn_resume: "Resume",
+                dashboard: "Real-time Data", dash_block: "Block", dash_wedge: "Wedge",
+                parameters: "Parameters", visual_opts: "Visuals & Vector Analysis", charts: "Kinematics Charts",
+                param_mass: "Block Mass", param_wedge_mass: "Wedge Mass", param_angle: "Incline Angle", param_mu: "Block Friction", param_muFloor: "Floor Friction",
+                param_push_block: "Block Push Force", param_push_wedge: "Wedge Push Force",
+                dir_down: "Down (-)", dir_up: "Up (+)", dir_left: "Left (-)", dir_right: "Right (+)",
+                opt_show_vectors: "Show Block Forces", opt_show_wedge_vectors: "Show Wedge Forces", opt_show_trail: "Show Trajectory Trail",
+                opt_decomp_none: "No Decomp.", opt_decomp_parallel: "Parallel/Perp",
+                chart_pos: "Position - Time", chart_vel: "Velocity - Time", chart_acc: "Acceleration - Time",
+                legend_forces: "Force Legend", legend_v_block: "Block Vel/Acc", legend_v_wedge: "Wedge Vel/Acc"
+            }
+        };
+        let currentLang = 'zh';
+
+        window.setLang = function(lang) {
+            currentLang = lang;
+            document.getElementById('btn-lang-zh').className = lang === 'zh' ? 'px-3 py-1 rounded-md bg-slate-600 text-white text-xs transition-colors' : 'px-3 py-1 rounded-md text-slate-400 hover:text-white text-xs transition-colors';
+            document.getElementById('btn-lang-en').className = lang === 'en' ? 'px-3 py-1 rounded-md bg-slate-600 text-white text-xs transition-colors' : 'px-3 py-1 rounded-md text-slate-400 hover:text-white text-xs transition-colors';
+            
+            // Re-render labels dynamically
+            if (currentTab === 1) {
+                ui.labelPush.innerHTML = (currentLang==='zh'?'木塊平行推力':'Block Push Force') + ' <span class="italic text-slate-500">F<sub>push</sub></span>';
+                ui.descPush.innerHTML = `<span data-i18n="dir_down">${currentLang==='zh'?'下滑方向 (-)':'Down Incline (-)'}</span><span data-i18n="dir_up">${currentLang==='zh'?'上推方向 (+)':'Up Incline (+)'}</span>`;
+            } else {
+                ui.labelPush.innerHTML = (currentLang==='zh'?'三角木水平推力':'Wedge Push Force') + ' <span class="italic text-slate-500">F<sub>push</sub></span>';
+                ui.descPush.innerHTML = `<span data-i18n="dir_left">${currentLang==='zh'?'向左推 (-)':'Left (-)'}</span><span data-i18n="dir_right">${currentLang==='zh'?'向右推 (+)':'Right (+)'}</span>`;
+            }
+            updateLanguageText();
+        };
+
+        function updateLanguageText() {
+            const dict = i18n[currentLang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) {
+                    if (key.startsWith('btn_')) {
+                        let icon = currentState === STATE.RUNNING ? '⏸' : '▶';
+                        if(key === 'btn_start' && currentState !== STATE.IDLE && currentState !== STATE.PAUSED) return;
+                        el.innerHTML = `<span id="icon-play">${icon}</span> ${dict[key]}`;
+                    } else if (key === 'param_mass' || key === 'param_wedge_mass' || key === 'param_angle' || key === 'param_mu' || key === 'param_muFloor') {
+                        // Preserved HTML structural tags for params handled inside setLang/switchTab mostly
+                        // Just basic replacement here for safe keys
+                        if(key==='param_mass') el.innerHTML = dict[key] + ' <span class="italic text-slate-500">m</span>';
+                        if(key==='param_wedge_mass') el.innerHTML = dict[key] + ' <span class="italic text-slate-500">M</span>';
+                        if(key==='param_angle') el.innerHTML = dict[key] + ' <span class="italic text-slate-500">θ</span>';
+                        if(key==='param_mu') el.innerHTML = dict[key] + ' <span class="italic text-slate-500">μ<sub>k</sub></span>';
+                        if(key==='param_muFloor') el.innerHTML = dict[key] + ' <span class="italic text-slate-500">μ<sub>floor</sub></span>';
+                    } else {
+                        el.innerHTML = dict[key];
+                    }
+                }
+            });
+        }
+
+        // --- Start ---
+        initEvents(); switchTab(1); requestAnimationFrame(loop);
+
+    })();
+    </script>
+</body>
+</html>
